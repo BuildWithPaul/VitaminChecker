@@ -410,6 +410,11 @@
                 <div class="preview-size" id="previewSize"></div>
             </div>
 
+            <div style="margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1.5rem;">
+                <p style="color:var(--text-secondary); margin-bottom:0.75rem; font-size:0.95rem;">Or paste your receipt text directly:</p>
+                <textarea id="textInput" style="width:100%; min-height:120px; background:var(--bg-dark); color:var(--text-primary); border:1px solid var(--border); border-radius:12px; padding:0.75rem; font-family:monospace; font-size:0.9rem; resize:vertical;" placeholder="e.g. Banane x2 2,40 EUR\nPoulet filet 4,95 EUR\nBrocoli 1,80 EUR"></textarea>
+            </div>
+
             <div class="btn-row">
                 <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeReceipt()" disabled>
                     🔍 Analyze
@@ -512,6 +517,11 @@
         let barChart = null;
         let selectedFile = null;
 
+        // Enable button when text is typed in textarea
+        document.getElementById('textInput').addEventListener('input', (e) => {
+            analyzeBtn.disabled = !(selectedFile || e.target.value.trim().length > 0);
+        });
+
         // ─── Upload zone ──────────────────────────────────────────────
         const uploadZone = document.getElementById('uploadZone');
         const imageInput = document.getElementById('imageInput');
@@ -599,8 +609,12 @@
         }
 
         async function analyzeReceipt() {
-            if (!selectedFile) {
-                showError('Please upload a photo of your receipt.');
+            const textInput = document.getElementById('textInput').value.trim();
+            const hasFile = !!selectedFile;
+            const hasText = textInput.length > 0;
+
+            if (!hasFile && !hasText) {
+                showError('Please upload a photo or paste receipt text.');
                 return;
             }
 
@@ -609,21 +623,34 @@
             document.getElementById('errorMsg').style.display = 'none';
             analyzeBtn.disabled = true;
 
-            const formData = new FormData();
-            formData.append('receipt_image', selectedFile);
-
             try {
-                const response = await fetch('/analyze', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await response.json();
-
-                if (!response.ok) {
-                    showError(data.error || "An error occurred during analysis.");
-                    return;
+                let data;
+                if (hasText && !hasFile) {
+                    // Text-only analysis (no OCR needed)
+                    const response = await fetch('/analyze_text', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({text: textInput})
+                    });
+                    data = await response.json();
+                    if (!response.ok) {
+                        showError(data.error || "An error occurred during analysis.");
+                        return;
+                    }
+                } else if (hasFile) {
+                    // Image upload with OCR
+                    const formData = new FormData();
+                    formData.append('receipt_image', selectedFile);
+                    const response = await fetch('/analyze', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    data = await response.json();
+                    if (!response.ok) {
+                        showError(data.error || "An error occurred during analysis.");
+                        return;
+                    }
                 }
-
                 renderResults(data);
             } catch (err) {
                 showError("Server connection error.");

@@ -35,23 +35,47 @@ Vitamin Checker uses OCR to scan supermarket receipts, identifies food items, an
 | E | Vitamin E | 15 | mg |
 | K | Vitamin K | 120 | µg |
 
-## 🚀 Quick Start
+## Quick Start
 
-### Prerequisites
+### Option 1: Docker (Recommended)
+
+No need to install Python or Tesseract -- everything runs in a container.
+
+```bash
+# Clone the repo
+git clone https://github.com/BuildWithPaul/VitaminChecker.git
+cd VitaminChecker
+
+# Build and run with Docker Compose
+docker compose up --build
+```
+
+Or with plain Docker:
+
+```bash
+docker build -t vitamin-checker .
+docker run -p 5000:5000 vitamin-checker
+```
+
+Open [http://localhost:5000](http://localhost:5000) in your browser.
+
+### Option 2: Manual Install
+
+#### Prerequisites
 
 - Python 3.10+
 - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) (for receipt image scanning)
 - French language pack for Tesseract (`tesseract-ocr-fra`)
 
-### Install
+#### Install
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/vitamin-checker.git
-cd vitamin-checker
+git clone https://github.com/BuildWithPaul/VitaminChecker.git
+cd VitaminChecker
 
 # Install Python dependencies
-pip install flask pillow pytesseract
+pip install -r requirements.txt
 
 # Install Tesseract OCR (Ubuntu/Debian)
 sudo apt-get install tesseract-ocr tesseract-ocr-fra
@@ -63,7 +87,7 @@ brew install tesseract tesseract-lang
 # Download from https://github.com/UB-Mannheim/tesseract/wiki
 ```
 
-### Run
+#### Run
 
 ```bash
 python3 app.py
@@ -76,6 +100,10 @@ Open [http://localhost:5000](http://localhost:5000) in your browser.
 ```
 vitamin-checker/
 ├── app.py                  # Flask backend (routes, OCR, nutrition analysis)
+├── requirements.txt        # Python dependencies
+├── Dockerfile              # Container definition (Python + Tesseract)
+├── docker-compose.yml      # One-command local setup
+├── .dockerignore           # Build exclusions
 ├── templates/
 │   └── index.html          # Frontend (single-page app with Chart.js)
 ├── uploads/                # Uploaded receipt images (auto-created)
@@ -139,7 +167,41 @@ Add entries to the `FOOD_VITAMINS` dictionary in `app.py`:
 
 Values are **% of RDA per 100g**. For example, avocado provides 20% of your daily Vitamin K per 100g.
 
-## 📝 Notes
+## Docker
+
+### Development mode
+
+To run with Flask's auto-reloading dev server instead of gunicorn:
+
+```bash
+docker compose run --rm -p 5000:5000 vitamin-checker python app.py
+```
+
+Or override the CMD in docker-compose.yml:
+
+```yaml
+    command: ["python", "app.py"]
+```
+
+### Production deployment
+
+The container uses **gunicorn** (2 workers, 120s timeout) by default. Deploy with:
+
+```bash
+docker compose up -d
+```
+
+Uploaded receipts are persisted via the `./uploads` volume mount.
+
+### Custom port
+
+```bash
+docker run -p 8080:5000 vitamin-checker
+```
+
+Or edit the port mapping in `docker-compose.yml`.
+
+## Notes
 
 - Vitamin values are approximate and based on standard nutritional data for 100g portions. Actual values vary by brand, ripeness, and preparation method.
 - OCR quality depends on photo clarity, lighting, and receipt font. Blurry or crumpled receipts may produce lower match rates.

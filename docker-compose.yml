@@ -1,0 +1,11 @@
+services:
+  vitamin-checker:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      # Persist uploaded receipts across container restarts
+      - ./uploads:/app/uploads
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped

@@ -500,6 +500,19 @@ def analyze():
     return jsonify(result)
 
 
+@app.route('/analyze_text', methods=['POST'])
+def analyze_text():
+    """Analyze receipt text pasted directly (no OCR needed)."""
+    data = request.get_json()
+    text = data.get('text', '').strip() if data else ''
+    if not text:
+        return jsonify({"error": "Please paste your receipt text."}), 400
+    items = parse_receipt_text(text)
+    result = analyze_vitamins(items)
+    result['ocr_text'] = text
+    return jsonify(result)
+
+
 @app.route('/sample')
 def sample():
     """Return a sample analysis result for demo purposes."""
