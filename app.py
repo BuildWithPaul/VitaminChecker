@@ -7,12 +7,74 @@ import os
 import re
 import json
 import unicodedata
+import secrets
+import tempfile
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+
+# ─── Rate Limiting ─────────────────────────────────────────────────
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://",
+)
+
+# ─── Security Configuration ─────────────────────────────────────────
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'tif', 'webp', 'pdf'}
+ALLOWED_MIMETYPES = {
+    'image/png', 'image/jpeg', 'image/gif', 'image/bmp',
+    'image/tiff', 'image/webp', 'application/pdf'
+}
+MAX_IMAGE_PIXELS = 50_000_000  # 50 megapixels max (prevent decompression bomb)
+
+
+def allowed_file(filename, file_obj=None):
+    """Check file extension and optionally MIME type."""
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    if ext not in ALLOWED_EXTENSIONS:
+        return False
+    # Also validate MIME type if file object is available
+    if file_obj and hasattr(file_obj, 'content_type') and file_obj.content_type:
+        if file_obj.content_type not in ALLOWED_MIMETYPES:
+            return False
+    return True
+
+
+def validate_image_safety(filepath):
+    """Validate image is safe to process (not a decompression bomb, not too large)."""
+    try:
+        from PIL import Image
+        img = Image.open(filepath)
+        # Check pixel count (decompression bomb protection)
+        width, height = img.size
+        if width * height > MAX_IMAGE_PIXELS:
+            img.close()
+            return False, "Image dimensions too large. Please use a smaller image."
+        # Check actual format matches extension
+        img_format = img.format
+        img.close()
+        return True, None
+    except Exception as e:
+        return False, f"Invalid image file: {str(e)}"
+
+
+def cleanup_file(filepath):
+    """Safely delete an uploaded file."""
+    try:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+    except OSError:
+        pass
+
 
 # ─── Nutrition Database ─────────────────────────────────────────────
 VITAMINS = {
@@ -48,7 +110,7 @@ def normalize_french(text):
     # Remove accents: é→e, è→e, ê→e, ë→e, à→a, â→a, ù→u, û→u, ü→u, î→i, ï→i, ô→o, ç→c, œ→oe, æ→ae
     text = unicodedata.normalize('NFD', text)
     text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
-    text = text.replace('œ', 'oe').replace('æ', 'ae')
+    text = text.replace('\u0153', 'oe').replace('\u00e6', 'ae')
     # Remove apostrophes and hyphens and spaces for key matching
     text = text.replace("'", "").replace("-", "").replace(" ", "")
     return text
@@ -63,31 +125,31 @@ for _key in FOOD_VITAMINS:
 # ─── Receipt Parsing ────────────────────────────────────────────────
 
 NOISE_WORDS = re.compile(
-    r'\b(total|sous.total|tva|tax|cb|carte|esp[eè]ces|rendu|monnaie|'
-    r'merci|bonjour|code|n°|ticket|caisse|hypermarch[eé]|supermarch[eé]|'
-    r'carrefour|leclerc|auchan|intermarch[eé]|casino|super.u|lid[l]|aldi|'
-    r'franprix|monoprix|cora|geant|promos?|promo|remise|r[eé]duction|'
-    r'unit[a-z]*|prix|kg|pi[eè]ce|euro|€|chr|f|^|\d+[,.]\d{2}\b|'
-    r'additif|produit|marque|ref|ean|article|nb|qt[eé]|quantit[eé]|'
+    r'\b(total|sous.total|tva|tax|cb|carte|esp[e\u00e8]ces|rendu|monnaie|'
+    r'merci|bonjour|code|n\u00b0|ticket|caisse|hypermarch[e\u00e9]|supermarch[e\u00e9]|'
+    r'carrefour|leclerc|auchan|intermarch[e\u00e9]|casino|super.u|lid[l]|aldi|'
+    r'franprix|monoprix|cora|geant|promos?|promo|remise|r[e\u00e9]duction|'
+    r'unit[a-z]*|prix|kg|pi[e\u00e8]ce|euro|\u20ac|chr|f|^|\d+[,.]\d{2}\b|'
+    r'additif|produit|marque|ref|ean|article|nb|qt[e\u00e8]|quantit[e\u00e9]|'
     r'montant|somme|net|brut|tl|tlca|tva|taux|taux\s*\d+%|'
-    r'cb|visa|mastercard|terminal|autorisation|contrat|n°|date|heure|'
+    r'cb|visa|mastercard|terminal|autorisation|contrat|n\u00b0|date|heure|'
     r'caisse|magasin|adresse|tel|siret|ape|rcs|capital|social|'
-    r'www|http|borne|scann[eé]|self|scan|'
-    r'montant|du|el[eé]gible|articles|vendus|nombre|recapitulatif|'
-    r'solde|ancien|nouveau|fidelit[eé]|carte|points|'
-    r'payer|regler|reglement|spec[eè]ces|emer|pin|nb|\b[a-z]\b)\b',
+    r'www|http|borne|scann[e\u00e9]|self|scan|'
+    r'montant|du|el[e\u00e9]gible|articles|vendus|nombre|recapitulatif|'
+    r'solde|ancien|nouveau|fidelit[e\u00e9]|carte|points|'
+    r'payer|regler|reglement|spec[e\u00e8]ces|emer|pin|nb|\b[a-z]\b)\b',
     re.IGNORECASE
 )
 
 NOISE_LINE_PATTERNS = re.compile(
-    r'^(total|sous.total|tva|cb|carte|esp[eè]ces|rendu|monnaie|'
-    r'merci|ticket|caisse|code|n°|montant|somme|net|brut|'
-    r'nombre|qt[eé]|el[eé]gible|articles|vendus|recapitulatif|'
-    r'solde|ancien|nouveau|fidelit[eé]|points|'
-    r'payer|regler|reglement|spec[eè]ces|emer|pin|'
+    r'^(total|sous.total|tva|cb|carte|esp[e\u00e8]ces|rendu|monnaie|'
+    r'merci|ticket|caisse|code|n\u00b0|montant|somme|net|brut|'
+    r'nombre|qt[e\u00e8]|el[e\u00e9]gible|articles|vendus|recapitulatif|'
+    r'solde|ancien|nouveau|fidelit[e\u00e9]|points|'
+    r'payer|regler|reglement|spec[e\u00e8]ces|emer|pin|'
     r'cb|visa|mastercard|terminal|autorisation|contrat|'
     r'date|heure|magasin|adresse|tel|siret|ape|rcs|capital|social|'
-    r'www|http|borne|scann[eé]|self|scan|'
+    r'www|http|borne|scann[e\u00e9]|self|scan|'
     r'.*\d+[,.]\d{2}\s*$|'
     r'^\s*\d+\s*$|'
     r'^\s*[a-z]\s*$|'
@@ -110,24 +172,24 @@ def parse_receipt_text(text):
             continue
 
         # Remove special characters often misread by OCR
-        line = re.sub(r'[\\"\'""''|\\*_~`^]', '', line)
+        line = re.sub(r'[\\\"\'\u2018\u2019\u201c\u201d|\u005c*_~`^]', '', line)
 
         # Remove price patterns
-        line = re.sub(r'\s*\d+[,]\d{2}\s*€?\s*$', '', line)
+        line = re.sub(r'\s*\d+[,]\d{2}\s*\u20ac?\s*$', '', line)
         line = re.sub(r'\d+[,.]\d{2}\s*EUR\b', '', line, flags=re.IGNORECASE)
         # Remove quantity/weight patterns
         line = re.sub(r'\d+[,.]?\d*\s*(kg|g|ml|cl|l|KG|G|ML|CL|L)\b', '', line)
-        line = re.sub(r'x\s*\d+[,.]?\d*\s*(euro?|€)/?\s*(kg|l|piece)?\b', '', line, flags=re.IGNORECASE)
+        line = re.sub(r'x\s*\d+[,.]?\d*\s*(euro?|\u20ac)/?\s*(kg|l|piece)?\b', '', line, flags=re.IGNORECASE)
         line = re.sub(r'^\d+\s*x\s*', '', line)
         line = re.sub(r'\d+\s*[xX]\s*\d+[,.]?\d*', '', line)
-        line = re.sub(r'\bEUR\b|€', '', line, flags=re.IGNORECASE)
+        line = re.sub(r'\bEUR\b|\u20ac', '', line, flags=re.IGNORECASE)
         line = re.sub(r'\b\d{8,}\b', '', line)
 
         cleaned = re.sub(NOISE_WORDS, '', line).strip()
         cleaned = re.sub(r'\s+', ' ', cleaned).strip(' -,.:;')
         cleaned = re.sub(r'\b\d+([,.]\d+)?\b', '', cleaned).strip(' -,.:;')
         cleaned = re.sub(r'\b[a-zA-Z]\b', '', cleaned).strip()
-        cleaned = re.sub(r'[^\w\sàâäéèêëïîôùûüÿçœæ]', '', cleaned).strip()
+        cleaned = re.sub(r'[^\w\s\u00e0\u00e2\u00e4\u00e9\u00e8\u00ea\u00eb\u00ef\u00ee\u00f4\u00f9\u00fb\u00fc\u00ff\u00e7\u0153\u00e6]', '', cleaned).strip()
         cleaned = re.sub(r'\s+', ' ', cleaned).strip()
 
         if len(cleaned) < 3:
@@ -261,6 +323,32 @@ def analyze_vitamins(items):
     }
 
 
+# ─── Security Headers ──────────────────────────────────────────────
+@app.after_request
+def set_security_headers(response):
+    """Add security headers to every response."""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "font-src 'self'; "
+        "object-src 'none'; "
+        "frame-ancestors 'none'"
+    )
+    # HSTS only if served over HTTPS (skip in dev)
+    if request.is_secure:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    # Remove server identification
+    response.headers.pop('Server', None)
+    return response
+
+
 # ─── Routes ──────────────────────────────────────────────────────────
 
 @app.route('/')
@@ -269,6 +357,7 @@ def index():
 
 
 @app.route('/analyze', methods=['POST'])
+@limiter.limit("10 per minute")
 def analyze():
     if 'receipt_image' not in request.files:
         return jsonify({"error": "Please upload a photo of your grocery receipt."}), 400
@@ -277,37 +366,65 @@ def analyze():
     if not file or not file.filename:
         return jsonify({"error": "No file received. Please upload an image."}), 400
 
+    # Validate file extension and MIME type
+    if not allowed_file(file.filename, file):
+        return jsonify({"error": "Invalid file type. Please upload an image (JPG, PNG, GIF, BMP, TIFF, WebP) or PDF."}), 400
+
     filename = secure_filename(file.filename)
+    if not filename:
+        filename = 'receipt_upload'
+
+    # Save to a temporary file that will be cleaned up
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    file.save(filepath)
 
-    text = ''
     try:
-        import pytesseract
-        from PIL import Image
-        img = Image.open(filepath)
+        file.save(filepath)
+
+        # Validate image safety (prevent decompression bombs)
+        img_safe, img_error = validate_image_safety(filepath)
+        if not img_safe:
+            cleanup_file(filepath)
+            return jsonify({"error": img_error}), 400
+
+        text = ''
         try:
-            ocr_text = pytesseract.image_to_string(img, lang='fra+eng', config='--psm 6')
-            text = ocr_text.strip()
-        except Exception:
+            import pytesseract
+            from PIL import Image
+            img = Image.open(filepath)
+            # Set pixel limit to prevent decompression bombs
+            Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
             try:
-                ocr_text = pytesseract.image_to_string(img, lang='fra', config='--psm 6')
+                ocr_text = pytesseract.image_to_string(img, lang='fra+eng', config='--psm 6')
                 text = ocr_text.strip()
             except Exception:
-                ocr_text = pytesseract.image_to_string(img, lang='eng', config='--psm 6')
-                text = ocr_text.strip()
+                try:
+                    ocr_text = pytesseract.image_to_string(img, lang='fra', config='--psm 6')
+                    text = ocr_text.strip()
+                except Exception:
+                    ocr_text = pytesseract.image_to_string(img, lang='eng', config='--psm 6')
+                    text = ocr_text.strip()
 
-        if not text.strip():
-            return jsonify({"error": "Could not read any text from the image. Is the photo clear and legible?"}), 400
+            if not text.strip():
+                return jsonify({"error": "Could not read any text from the image. Is the photo clear and legible?"}), 400
 
-    except ImportError:
-        return jsonify({"error": "OCR not available. Please install pytesseract and Tesseract OCR."}), 500
+        except ImportError:
+            return jsonify({"error": "OCR not available. Please install pytesseract and Tesseract OCR."}), 500
+        finally:
+            # Close image if open
+            try:
+                img.close()
+            except Exception:
+                pass
 
-    items = parse_receipt_text(text)
-    result = analyze_vitamins(items)
-    result['ocr_text'] = text
-    return jsonify(result)
+        items = parse_receipt_text(text)
+        result = analyze_vitamins(items)
+        result['ocr_text'] = text
+        return jsonify(result)
+
+    finally:
+        # Always clean up uploaded file
+        cleanup_file(filepath)
 
 
 @app.route('/sample')
@@ -335,4 +452,4 @@ Ail x2 0,80\u20ac"""
 
 if __name__ == '__main__':
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000)

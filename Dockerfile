@@ -18,11 +18,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Ensure uploads directory exists
-RUN mkdir -p uploads
+# Create non-root user for security
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser && \
+    mkdir -p uploads && chown -R appuser:appuser /app uploads
 
 # ─── Runtime ─────────────────────────────────────────────────────────
 EXPOSE 5000
+
+# Run as non-root user
+USER appuser
 
 # Default: production server with gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "app:app"]
