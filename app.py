@@ -323,30 +323,7 @@ def analyze_vitamins(items):
     }
 
 
-# ─── Security Headers ──────────────────────────────────────────────
-@app.after_request
-def set_security_headers(response):
-    """Add security headers to every response."""
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'DENY'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    response.headers['Content-Security-Policy'] = (
-        "default-src 'self'; "
-        "script-src 'self' https://cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data:; "
-        "connect-src 'self'; "
-        "font-src 'self'; "
-        "object-src 'none'; "
-        "frame-ancestors 'none'"
-    )
-    # HSTS only if served over HTTPS (skip in dev)
-    if request.is_secure:
-        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    # Remove server identification
-    response.headers.pop('Server', None)
-    return response
+
 
 
 # ─── Routes ──────────────────────────────────────────────────────────
