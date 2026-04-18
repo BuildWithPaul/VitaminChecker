@@ -8,6 +8,20 @@ Vitamin Checker uses OCR to scan supermarket receipts, identifies food items, an
 ![Flask](https://img.shields.io/badge/Flask-3.1-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
+## 📸 Screenshots
+
+### Landing Page
+
+![Vitamin Checker Landing Page](images/landing.png)
+
+Upload your receipt photo or paste the text directly, then click Analyze.
+
+### Analysis Results
+
+![Vitamin Checker Analysis Results](images/results.png)
+
+Interactive dashboard with radar chart, gap analysis, vitamin breakdown, personalized recommendations, and per-product nutrient details.
+
 ## ✨ Features
 
 - **📸 Photo upload** — Drag-and-drop or click to upload a receipt image (JPG, PNG, PDF)
@@ -107,6 +121,9 @@ vitamin-checker/
 ├── templates/
 │   └── index.html          # Frontend (single-page app with Chart.js)
 ├── uploads/                # Uploaded receipt images (auto-created)
+├── images/                 # Screenshots for README
+│   ├── landing.png         # Landing page screenshot
+│   └── results.png         # Analysis results screenshot
 └── README.md
 ```
 
