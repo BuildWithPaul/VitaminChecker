@@ -371,22 +371,29 @@ def analyze():
             img = Image.open(filepath)
             # Set pixel limit to prevent decompression bombs
             Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
-            try:
-                ocr_text = pytesseract.image_to_string(img, lang='fra+eng', config='--psm 6')
-                text = ocr_text.strip()
-            except Exception:
+            ocr_error = None
+            for lang_config in [('fra+eng', 'fra+eng'), ('fra', 'fra'), ('eng', 'eng')]:
                 try:
-                    ocr_text = pytesseract.image_to_string(img, lang='fra', config='--psm 6')
+                    ocr_text = pytesseract.image_to_string(img, lang=lang_config[0], config='--psm 6')
                     text = ocr_text.strip()
-                except Exception:
-                    ocr_text = pytesseract.image_to_string(img, lang='eng', config='--psm 6')
-                    text = ocr_text.strip()
+                    if text:
+                        break
+                except pytesseract.TesseractNotFoundError:
+                    # Tesseract binary not installed — no point retrying
+                    ocr_error = "OCR engine not available. Tesseract is not installed on the server."
+                    break
+                except Exception as e:
+                    ocr_error = str(e)
+                    continue
+
+            if ocr_error and not text:
+                return jsonify({"error": ocr_error}), 503
 
             if not text.strip():
                 return jsonify({"error": "Could not read any text from the image. Is the photo clear and legible?"}), 400
 
         except ImportError:
-            return jsonify({"error": "OCR not available. Please install pytesseract and Tesseract OCR."}), 500
+            return jsonify({"error": "OCR not available. Please install pytesseract and Tesseract OCR."}), 503
         finally:
             # Close image if open
             try:
