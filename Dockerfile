@@ -19,14 +19,17 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create non-root user for security
-RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser && \
-    mkdir -p uploads && chown -R appuser:appuser /app uploads
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /bin/sh appuser && \
+    mkdir -p /app/uploads && chown -R appuser:appuser /app
+
+# Make entrypoint executable
+RUN chmod +x /app/entrypoint.sh
 
 # ─── Runtime ─────────────────────────────────────────────────────────
 EXPOSE 5000
 
-# Run as non-root user
-USER appuser
+# Run entrypoint as root to fix perms, then drop to appuser
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Default: production server with gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "app:app"]
