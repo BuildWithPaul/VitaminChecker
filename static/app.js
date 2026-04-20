@@ -39,7 +39,6 @@
     // ─── DOM References ──────────────────────────────────────────────
     const uploadZone = document.getElementById('uploadZone');
     const imageInput = document.getElementById('imageInput');
-    const analyzeBtn = document.getElementById('analyzeBtn');
     const clearBtn = document.getElementById('clearBtn');
     const previewContainer = document.getElementById('previewContainer');
     const previewImage = document.getElementById('previewImage');
@@ -52,7 +51,6 @@
         imageInput.click();
     });
 
-    analyzeBtn.addEventListener('click', analyzeReceipt);
     clearBtn.addEventListener('click', clearAll);
 
     imageInput.addEventListener('change', (e) => {
@@ -101,11 +99,10 @@
         uploadZone.querySelector('.upload-title').textContent = 'Photo loaded: ' + file.name;
         uploadZone.querySelector('.upload-text').textContent = 'Click to change the photo';
 
-        analyzeBtn.disabled = false;
         clearBtn.style.display = 'inline-flex';
 
-        document.getElementById('results').style.display = 'none';
-        document.getElementById('errorMsg').style.display = 'none';
+        // Auto-analyze on upload
+        analyzeReceipt();
     }
 
     function clearAll() {
@@ -119,7 +116,6 @@
         uploadZone.querySelector('.upload-icon').textContent = '📷';
         uploadZone.querySelector('.upload-title').textContent = 'Drop your photo here or click to browse';
         uploadZone.querySelector('.upload-text').textContent = 'Supports JPG, PNG, PDF';
-        analyzeBtn.disabled = true;
         clearBtn.style.display = 'none';
         document.getElementById('results').style.display = 'none';
         document.getElementById('errorMsg').style.display = 'none';
@@ -136,7 +132,6 @@
         document.getElementById('loading').classList.add('active');
         document.getElementById('results').style.display = 'none';
         document.getElementById('errorMsg').style.display = 'none';
-        analyzeBtn.disabled = true;
 
         try {
             const formData = new FormData();
@@ -155,7 +150,6 @@
             showError("Server connection error.");
         } finally {
             document.getElementById('loading').classList.remove('active');
-            analyzeBtn.disabled = false;
         }
     }
 
@@ -164,7 +158,6 @@
         el.textContent = "❌ " + msg;
         el.style.display = 'block';
         document.getElementById('loading').classList.remove('active');
-        analyzeBtn.disabled = false;
     }
 
     function renderResults(data) {
