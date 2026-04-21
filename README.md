@@ -128,10 +128,12 @@ vitamin-checker/
 ├── images/                 # Screenshots for README
 │   ├── landing.png         # Landing page screenshot
 │   └── results.png         # Analysis results screenshot
-├── deploy/                 # Production deployment (Caddy + HTTPS)
-│   ├── Caddyfile           # Caddy reverse proxy config
-│   ├── docker-compose.prod.yml  # Production compose (Flask + Caddy)
+├── deploy/                 # Legacy deploy files (see caddy-docker repo instead)
+│   ├── Caddyfile           # Caddy reverse proxy config (legacy)
+│   ├── docker-compose.prod.yml  # Production compose (legacy)
 │   └── DEPLOY-GUIDE.md     # Full deployment walkthrough
+│
+│  ➡️  Updated Caddy setup: [BuildWithPaul/caddy-docker](https://github.com/BuildWithPaul/caddy-docker)
 └── README.md
 ```
 
@@ -230,24 +232,23 @@ Or edit the port mapping in `docker-compose.yml`.
 
 Deploy behind [Caddy](https://caddyserver.com/) for automatic HTTPS with Let's Encrypt. Certificates are obtained and renewed automatically — no certbot, no cron.
 
+The Caddy reverse proxy config now lives in its own repo: **[BuildWithPaul/caddy-docker](https://github.com/BuildWithPaul/caddy-docker)** — reusable for any Docker service you want to expose with HTTPS.
+
 ```bash
-git clone https://github.com/BuildWithPaul/VitaminChecker.git ~/vitaminchecker
-cd ~/vitaminchecker
+# 1. Clone the Caddy proxy setup
+git clone https://github.com/BuildWithPaul/caddy-docker.git ~/caddy-docker
 
-# Edit deploy/Caddyfile — replace paul-sandbox.duckdns.org with your domain
-# Edit deploy/docker-compose.prod.yml — adjust APPLICATION_ROOT if not using /vitaminchecker
+# 2. Clone VitaminChecker
+git clone https://github.com/BuildWithPaul/VitaminChecker.git ~/VitaminChecker
 
-docker compose -f deploy/docker-compose.prod.yml up -d --build
+# 3. Edit ~/caddy-docker/Caddyfile if you want a different domain or subpath
+# 4. Deploy
+cd ~/caddy-docker && docker compose up -d
 ```
 
 Your app is now live at `https://paul-sandbox.duckdns.org/vitaminchecker/` with auto-renewing HTTPS.
 
-All production deploy files live in the `deploy/` folder:
-
-| File | Purpose |
-|------|---------|
-| `deploy/Caddyfile` | Caddy config — domain, subpath, reverse proxy |
-| `deploy/docker-compose.prod.yml` | Production compose — Flask + Caddy containers |
+The legacy `deploy/` folder is still included for reference, but the up-to-date Caddy setup is maintained in [caddy-docker](https://github.com/BuildWithPaul/caddy-docker).
 
 > **Prerequisites:** DNS pointing to your VPS, ports 80/443 open.
 > **Root path:** Remove the `redir /` line and change `handle_path /vitaminchecker/*` to `handle` if hosting at root.
