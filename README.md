@@ -2,6 +2,8 @@
 
 **Snap a photo of your grocery receipt and instantly discover your vitamin gaps.**
 
+> 🌐 **Try it live:** [https://paul-sandbox.duckdns.org/vitaminchecker/](https://paul-sandbox.duckdns.org/vitaminchecker/)
+
 Vitamin Checker uses OCR to scan supermarket receipts, identifies food items, and maps them against a nutritional database covering 12 essential vitamins. It then generates an interactive dashboard showing which vitamins you're getting enough of — and which you're missing.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
