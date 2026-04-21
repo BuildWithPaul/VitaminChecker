@@ -1,13 +1,15 @@
 services:
   vitaminchecker:
-    build: .
+    build:
+      context: ..
+      dockerfile: Dockerfile
     container_name: vitaminchecker
     restart: unless-stopped
     environment:
       - FLASK_ENV=production
       - APPLICATION_ROOT=/vitaminchecker
     volumes:
-      - ./uploads:/app/uploads
+      - ../uploads:/app/uploads
 
   caddy:
     image: caddy:2

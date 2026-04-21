@@ -116,7 +116,7 @@ vitamin-checker/
 ├── app.py                  # Flask backend (routes, OCR, nutrition analysis)
 ├── requirements.txt        # Python dependencies
 ├── Dockerfile              # Container definition (Python + Tesseract)
-├── docker-compose.yml      # One-command local setup
+├── docker-compose.yml      # Local dev (Flask only, port 5000)
 ├── .dockerignore           # Build exclusions
 ├── templates/
 │   └── index.html          # Frontend (single-page app with Chart.js)
@@ -126,6 +126,10 @@ vitamin-checker/
 ├── images/                 # Screenshots for README
 │   ├── landing.png         # Landing page screenshot
 │   └── results.png         # Analysis results screenshot
+├── deploy/                 # Production deployment (Caddy + HTTPS)
+│   ├── Caddyfile           # Caddy reverse proxy config
+│   ├── docker-compose.prod.yml  # Production compose (Flask + Caddy)
+│   └── DEPLOY-GUIDE.md     # Full deployment walkthrough
 └── README.md
 ```
 
@@ -224,63 +228,24 @@ Or edit the port mapping in `docker-compose.yml`.
 
 Deploy behind [Caddy](https://caddyserver.com/) for automatic HTTPS with Let's Encrypt. Certificates are obtained and renewed automatically — no certbot, no cron.
 
-**1. Clone and create the Caddyfile:**
-
 ```bash
 git clone https://github.com/BuildWithPaul/VitaminChecker.git ~/vitaminchecker
 cd ~/vitaminchecker
 
-cat > Caddyfile << 'EOF'
-your-domain.duckdns.org {
-    handle_path /vitaminchecker/* {
-        reverse_proxy vitaminchecker:5000
-    }
-    redir /vitaminchecker /vitaminchecker/ permanent
-    redir / /vitaminchecker/ permanent
-}
-EOF
+# Edit deploy/Caddyfile — replace paul-sandbox.duckdns.org with your domain
+# Edit deploy/docker-compose.prod.yml — adjust APPLICATION_ROOT if not using /vitaminchecker
+
+docker compose -f deploy/docker-compose.prod.yml up -d --build
 ```
 
-**2. Create `docker-compose.prod.yml`:**
+Your app is now live at `https://paul-sandbox.duckdns.org/vitaminchecker/` with auto-renewing HTTPS.
 
-```yaml
-services:
-  vitaminchecker:
-    build: .
-    container_name: vitaminchecker
-    restart: unless-stopped
-    environment:
-      - FLASK_ENV=production
-      - APPLICATION_ROOT=/vitaminchecker
-    volumes:
-      - ./uploads:/app/uploads
+All production deploy files live in the `deploy/` folder:
 
-  caddy:
-    image: caddy:2
-    container_name: caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - vitaminchecker
-
-volumes:
-  caddy_data:
-  caddy_config:
-```
-
-**3. Deploy:**
-
-```bash
-docker compose -f docker-compose.prod.yml up -d --build
-```
-
-Your app is now live at `https://your-domain.duckdns.org/vitaminchecker/` with auto-renewing HTTPS.
+| File | Purpose |
+|------|---------|
+| `deploy/Caddyfile` | Caddy config — domain, subpath, reverse proxy |
+| `deploy/docker-compose.prod.yml` | Production compose — Flask + Caddy containers |
 
 > **Prerequisites:** DNS pointing to your VPS, ports 80/443 open.
 > **Root path:** Remove the `redir /` line and change `handle_path /vitaminchecker/*` to `handle` if hosting at root.
