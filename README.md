@@ -227,8 +227,8 @@ Deploy behind [Caddy](https://caddyserver.com/) for automatic HTTPS with Let's E
 **1. Clone and create the Caddyfile:**
 
 ```bash
-git clone https://github.com/BuildWithPaul/VitaminChecker.git /opt/vitaminchecker
-cd /opt/vitaminchecker
+git clone https://github.com/BuildWithPaul/VitaminChecker.git ~/vitaminchecker
+cd ~/vitaminchecker
 
 cat > Caddyfile << 'EOF'
 your-domain.duckdns.org {

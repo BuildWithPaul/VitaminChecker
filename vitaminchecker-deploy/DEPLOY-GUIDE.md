@@ -53,8 +53,8 @@ sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
 ## Step 4: Clone & Deploy
 
 ```bash
-git clone https://github.com/BuildWithPaul/VitaminChecker.git /opt/vitaminchecker
-cd /opt/vitaminchecker
+git clone https://github.com/BuildWithPaul/VitaminChecker.git ~/vitaminchecker
+cd ~/vitaminchecker
 ```
 
 Create `Caddyfile`:
@@ -157,7 +157,7 @@ docker compose -f docker-compose.prod.yml logs -f
 docker compose -f docker-compose.prod.yml restart
 
 # Update app (pull latest code + rebuild)
-cd /opt/vitaminchecker && git pull
+cd ~/vitaminchecker && git pull
 docker compose -f docker-compose.prod.yml up -d --build
 
 # Stop

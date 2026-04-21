@@ -12,11 +12,11 @@
 set -e
 
 # ── 1. Clone ─────────────────────────────────────────────────────────
-if [ -d "/opt/vitaminchecker" ]; then
-    cd /opt/vitaminchecker && git pull
+if [ -d "$HOME/vitaminchecker" ]; then
+    cd ~/vitaminchecker && git pull
 else
-    git clone https://github.com/BuildWithPaul/VitaminChecker.git /opt/vitaminchecker
-    cd /opt/vitaminchecker
+    git clone https://github.com/BuildWithPaul/VitaminChecker.git ~/vitaminchecker
+    cd ~/vitaminchecker
 fi
 
 # ── 2. Create Caddyfile ─────────────────────────────────────────────
