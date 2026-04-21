@@ -120,6 +120,8 @@ vitamin-checker/
 ├── .dockerignore           # Build exclusions
 ├── templates/
 │   └── index.html          # Frontend (single-page app with Chart.js)
+├── static/
+│   └── app.js              # Client-side logic (upload, charts, API calls)
 ├── uploads/                # Uploaded receipt images (auto-created)
 ├── images/                 # Screenshots for README
 │   ├── landing.png         # Landing page screenshot
@@ -217,6 +219,71 @@ docker run -p 8080:5000 vitamin-checker
 ```
 
 Or edit the port mapping in `docker-compose.yml`.
+
+### HTTPS with auto-renewing certificate (Caddy)
+
+Deploy behind [Caddy](https://caddyserver.com/) for automatic HTTPS with Let's Encrypt. Certificates are obtained and renewed automatically — no certbot, no cron.
+
+**1. Clone and create the Caddyfile:**
+
+```bash
+git clone https://github.com/BuildWithPaul/VitaminChecker.git /opt/vitaminchecker
+cd /opt/vitaminchecker
+
+cat > Caddyfile << 'EOF'
+your-domain.duckdns.org {
+    handle_path /vitaminchecker/* {
+        reverse_proxy vitaminchecker:5000
+    }
+    redir /vitaminchecker /vitaminchecker/ permanent
+    redir / /vitaminchecker/ permanent
+}
+EOF
+```
+
+**2. Create `docker-compose.prod.yml`:**
+
+```yaml
+services:
+  vitaminchecker:
+    build: .
+    container_name: vitaminchecker
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=production
+      - APPLICATION_ROOT=/vitaminchecker
+    volumes:
+      - ./uploads:/app/uploads
+
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - vitaminchecker
+
+volumes:
+  caddy_data:
+  caddy_config:
+```
+
+**3. Deploy:**
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Your app is now live at `https://your-domain.duckdns.org/vitaminchecker/` with auto-renewing HTTPS.
+
+> **Prerequisites:** DNS pointing to your VPS, ports 80/443 open.
+> **Root path:** Remove the `redir /` line and change `handle_path /vitaminchecker/*` to `handle` if hosting at root.
 
 ## Notes
 
