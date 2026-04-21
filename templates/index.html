@@ -476,6 +476,7 @@
         </div>
     </div>
 
-    <script src="/static/app.js"></script>
+    <script>window.APP_PREFIX = "{{ config['APPLICATION_ROOT'] }}" === "/" ? "" : "{{ config['APPLICATION_ROOT'] }}";</script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

@@ -1,0 +1,11 @@
+paul-sandbox.duckdns.org {
+	handle_path /vitaminchecker/* {
+		reverse_proxy vitaminchecker:5000
+	}
+
+	# Redirect /vitaminchecker (no trailing slash) to /vitaminchecker/
+	redir /vitaminchecker /vitaminchecker/ permanent
+
+	# Optional: redirect root to /vitaminchecker/
+	redir / /vitaminchecker/ permanent
+}

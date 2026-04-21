@@ -16,6 +16,7 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+app.config['APPLICATION_ROOT'] = os.environ.get('APPLICATION_ROOT', '/')
 
 # ─── Rate Limiting ─────────────────────────────────────────────────
 from flask_limiter import Limiter

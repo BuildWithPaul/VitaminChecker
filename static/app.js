@@ -136,7 +136,7 @@
         try {
             const formData = new FormData();
             formData.append('receipt_image', selectedFile);
-            const response = await fetch('/analyze', {
+            const response = await fetch((window.APP_PREFIX || '') + '/analyze', {
                 method: 'POST',
                 body: formData
             });
