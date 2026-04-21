@@ -248,7 +248,15 @@ cd ~/caddy-docker && docker compose up -d
 
 Your app is now live at `https://paul-sandbox.duckdns.org/vitaminchecker/` with auto-renewing HTTPS.
 
-The legacy `deploy/` folder is still included for reference, but the up-to-date Caddy setup is maintained in [caddy-docker](https://github.com/BuildWithPaul/caddy-docker).
+The legacy `deploy/` folder is still included for reference, but the up-to-date Caddy setup is maintained in [caddy-docker](https://github.com/BuildWithPaul/caddy-docker). That repo also hosts other services like [ChouChouAlerte](https://github.com/BuildWithPaul/ChouChouAlerte).
+
+> **If you get a container name conflict** when switching from the old `deploy/docker-compose.prod.yml` to `caddy-docker`:
+> ```bash
+> # Stop the old setup first
+> cd ~/vitaminchecker && docker compose -f deploy/docker-compose.prod.yml down
+> # Then deploy the new setup
+> cd ~/caddy-docker && docker compose up -d --build
+> ```
 
 > **Prerequisites:** DNS pointing to your VPS, ports 80/443 open.
 > **Root path:** Remove the `redir /` line and change `handle_path /vitaminchecker/*` to `handle` if hosting at root.
