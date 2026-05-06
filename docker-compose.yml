@@ -6,11 +6,15 @@ services:
     volumes:
       # Persist uploaded receipts across container restarts
       - ./uploads:/app/uploads
+      # Persist EasyOCR model cache across container rebuilds (~100MB)
+      - easyocr_models:/app/.EasyOCR
     environment:
       - FLASK_ENV=production
-      - SECRET_KEY=${SECRET_KEY:-change-me-to-a-random-secret-in-production}
+      - EASYOCR_MODULE_PATH=/app/.EasyOCR
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
     restart: unless-stopped
-    # Security: read-only root filesystem except /app/uploads and /tmp
-    read_only: true
     tmpfs:
       - /tmp:size=50M
+
+volumes:
+  easyocr_models:

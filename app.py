@@ -12,6 +12,17 @@ import tempfile
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 
+# ─── EasyOCR Reader (lazy-loaded singleton) ──────────────────────────
+_ocr_reader = None
+
+def _get_ocr_reader():
+    """Return a shared EasyOCR reader instance (lazy-loaded, French + English)."""
+    global _ocr_reader
+    if _ocr_reader is None:
+        import easyocr
+        _ocr_reader = easyocr.Reader(['fr', 'en'], gpu=False)
+    return _ocr_reader
+
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max
@@ -366,33 +377,19 @@ def analyze():
 
         text = ''
         try:
-            import pytesseract
             from PIL import Image
-            img = Image.open(filepath)
-            # Set pixel limit to prevent decompression bombs
             Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
-            try:
-                ocr_text = pytesseract.image_to_string(img, lang='fra+eng', config='--psm 6')
-                text = ocr_text.strip()
-            except Exception:
-                try:
-                    ocr_text = pytesseract.image_to_string(img, lang='fra', config='--psm 6')
-                    text = ocr_text.strip()
-                except Exception:
-                    ocr_text = pytesseract.image_to_string(img, lang='eng', config='--psm 6')
-                    text = ocr_text.strip()
+            reader = _get_ocr_reader()
+            results = reader.readtext(filepath, detail=0, paragraph=True)
+            text = '\n'.join(results).strip()
 
             if not text.strip():
                 return jsonify({"error": "Could not read any text from the image. Is the photo clear and legible?"}), 400
 
         except ImportError:
-            return jsonify({"error": "OCR not available. Please install pytesseract and Tesseract OCR."}), 500
-        finally:
-            # Close image if open
-            try:
-                img.close()
-            except Exception:
-                pass
+            return jsonify({"error": "OCR not available. Please install easyocr."}), 500
+        except RuntimeError as e:
+            return jsonify({"error": f"OCR engine error: {str(e)}"}), 500
 
         items = parse_receipt_text(text)
         result = analyze_vitamins(items)

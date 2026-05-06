@@ -25,7 +25,7 @@ Interactive dashboard with radar chart, gap analysis, vitamin breakdown, persona
 ## ✨ Features
 
 - **📸 Photo upload** — Drag-and-drop or click to upload a receipt image (JPG, PNG, PDF)
-- **🔍 OCR scanning** — Automatic text extraction from receipt photos using Tesseract (French + English)
+- **🔍 OCR scanning** — Automatic text extraction from receipt photos using EasyOCR (deep-learning, French + English)
 - **🧠 Smart matching** — Fuzzy matching of OCR'd product names against 100+ food items
 - **📊 Interactive dashboard** — Radar chart, bar chart, and progress bars for 12 vitamins
 - **💡 Recommendations** — For each deficiency, suggests specific foods to buy next time
@@ -53,7 +53,7 @@ Interactive dashboard with radar chart, gap analysis, vitamin breakdown, persona
 
 ### Option 1: Docker (Recommended)
 
-No need to install Python or Tesseract -- everything runs in a container.
+No need to install Python or OCR engines -- everything runs in a container (EasyOCR models are downloaded at build time).
 
 ```bash
 # Clone the repo
@@ -78,8 +78,6 @@ Open [http://localhost:5000](http://localhost:5000) in your browser.
 #### Prerequisites
 
 - Python 3.10+
-- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) (for receipt image scanning)
-- French language pack for Tesseract (`tesseract-ocr-fra`)
 
 #### Install
 
@@ -88,17 +86,11 @@ Open [http://localhost:5000](http://localhost:5000) in your browser.
 git clone https://github.com/BuildWithPaul/VitaminChecker.git
 cd VitaminChecker
 
-# Install Python dependencies
+# Install Python dependencies (includes EasyOCR)
 pip install -r requirements.txt
 
-# Install Tesseract OCR (Ubuntu/Debian)
-sudo apt-get install tesseract-ocr tesseract-ocr-fra
-
-# Install Tesseract OCR (macOS with Homebrew)
-brew install tesseract tesseract-lang
-
-# Install Tesseract OCR (Windows)
-# Download from https://github.com/UB-Mannheim/tesseract/wiki
+# EasyOCR will download its models (~100MB) automatically on first run
+# Or pre-download: python -c "import easyocr; easyocr.Reader(['fr', 'en'], gpu=False)"
 ```
 
 #### Run
@@ -114,8 +106,8 @@ Open [http://localhost:5000](http://localhost:5000) in your browser.
 ```
 vitamin-checker/
 ├── app.py                  # Flask backend (routes, OCR, nutrition analysis)
-├── requirements.txt        # Python dependencies
-├── Dockerfile              # Container definition (Python + Tesseract)
+├── requirements.txt        # Python dependencies (Flask, EasyOCR, etc.)
+├── Dockerfile              # Container definition (Python + EasyOCR models)
 ├── docker-compose.yml      # One-command local setup
 ├── .dockerignore           # Build exclusions
 ├── templates/
@@ -130,7 +122,7 @@ vitamin-checker/
 ## 🔧 How It Works
 
 1. **Upload** — You upload a photo of your grocery receipt
-2. **OCR** — Tesseract extracts text from the image (French + English)
+2. **OCR** — EasyOCR extracts text from the image (French + English)
 3. **Parse** — The receipt parser strips prices, weights, barcodes, and noise, leaving only product names
 4. **Match** — Each product name is fuzzy-matched against the nutrition database
 5. **Analyze** — Vitamin contributions are summed across all matched items and compared against RDA values
@@ -202,7 +194,7 @@ Or override the CMD in docker-compose.yml:
 
 ### Production deployment
 
-The container uses **gunicorn** (2 workers, 120s timeout) by default. Deploy with:
+The container uses **gunicorn** (1 worker + gevent, 120s timeout) by default. EasyOCR models are loaded into memory (~100MB), so 1 worker keeps RAM reasonable. Deploy with:
 
 ```bash
 docker compose up -d
@@ -221,7 +213,7 @@ Or edit the port mapping in `docker-compose.yml`.
 ## Notes
 
 - Vitamin values are approximate and based on standard nutritional data for 100g portions. Actual values vary by brand, ripeness, and preparation method.
-- OCR quality depends on photo clarity, lighting, and receipt font. Blurry or crumpled receipts may produce lower match rates.
+- OCR quality depends on photo clarity, lighting, and receipt font. EasyOCR handles blurry/crumpled receipts much better than classic OCR engines.
 - The nutrition database uses French product names since it was originally designed for French supermarket receipts. Add English names as needed in the `FOOD_VITAMINS` dictionary.
 
 ## 📜 License
@@ -230,4 +222,4 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-Built with Flask, Chart.js, Tesseract OCR, and Python 🐍
+Built with Flask, Chart.js, EasyOCR, and Python 🐍
