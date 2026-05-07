@@ -29,11 +29,17 @@ COPY . .
 # Ensure uploads dir and app files have correct ownership
 RUN mkdir -p uploads && chown -R appuser:appuser /app uploads
 
+# Entrypoint to fix bind mount permissions at container start
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # ─── Runtime ─────────────────────────────────────────────────────────
 EXPOSE 5000
 
 # Run as non-root user
 USER appuser
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Default: production server with gunicorn (1 worker — EasyOCR models ~100MB in RAM)
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--worker-class", "gevent", "--timeout", "120", "app:app"]

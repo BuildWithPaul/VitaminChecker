@@ -1,2 +1,3 @@
 __pycache__/
 test_app.py
+uploads/*.jpg\nuploads/*.png\nuploads/*.gif\nuploads/*.pdf
