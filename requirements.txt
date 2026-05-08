@@ -1,6 +1,6 @@
 flask==3.1.*
 pillow==11.*
-easyocr>=1.7
+pytesseract==0.3.*
 gunicorn==23.*
 gevent>=24.0
 flask-talisman==1.1.*

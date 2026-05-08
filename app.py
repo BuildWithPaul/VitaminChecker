@@ -12,17 +12,6 @@ import tempfile
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 
-# ─── EasyOCR Reader (lazy-loaded singleton) ──────────────────────────
-_ocr_reader = None
-
-def _get_ocr_reader():
-    """Return a shared EasyOCR reader instance (lazy-loaded, French + English)."""
-    global _ocr_reader
-    if _ocr_reader is None:
-        import easyocr
-        _ocr_reader = easyocr.Reader(['fr', 'en'], gpu=False)
-    return _ocr_reader
-
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max
@@ -377,19 +366,33 @@ def analyze():
 
         text = ''
         try:
+            import pytesseract
             from PIL import Image
+            img = Image.open(filepath)
             Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
-            reader = _get_ocr_reader()
-            results = reader.readtext(filepath, detail=0, paragraph=True)
-            text = '\n'.join(results).strip()
+            ocr_error = None
+            for lang_config in [('fra+eng', 'fra+eng'), ('fra', 'fra'), ('eng', 'eng')]:
+                try:
+                    ocr_text = pytesseract.image_to_string(img, lang=lang_config[0], config='--psm 3')
+                    text = ocr_text.strip()
+                    if text:
+                        break
+                except pytesseract.TesseractNotFoundError:
+                    ocr_error = "OCR engine not available. Tesseract is not installed on the server."
+                    break
+                except Exception as e:
+                    ocr_error = str(e)
+                    continue
+            img.close()
+
+            if ocr_error and not text:
+                return jsonify({"error": ocr_error}), 503
 
             if not text.strip():
                 return jsonify({"error": "Could not read any text from the image. Is the photo clear and legible?"}), 400
 
         except ImportError:
-            return jsonify({"error": "OCR not available. Please install easyocr."}), 500
-        except RuntimeError as e:
-            return jsonify({"error": f"OCR engine error: {str(e)}"}), 500
+            return jsonify({"error": "OCR not available. Please install pytesseract and Tesseract OCR."}), 503
 
         items = parse_receipt_text(text)
         result = analyze_vitamins(items)

@@ -1,27 +1,22 @@
 # ─── Build stage ─────────────────────────────────────────────────────
 FROM python:3.12-slim AS base
 
-# OpenCV dependencies (required by EasyOCR)
+# Install Tesseract OCR + French & English language packs
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libgl1 \
-        libglib2.0-0 \
+        tesseract-ocr \
+        tesseract-ocr-fra \
+        tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Create non-root user early (needed for model cache permissions)
+# Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
 
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Pre-download EasyOCR models (French + English) so first request is fast
-# Uses EASYOCR_MODULE_PATH to cache models inside the app directory
-ENV EASYOCR_MODULE_PATH=/app/.EasyOCR
-RUN python -c "import easyocr; easyocr.Reader(['fr', 'en'], gpu=False)" && \
-    chown -R appuser:appuser /app/.EasyOCR
 
 # Copy application code
 COPY . .
@@ -41,5 +36,5 @@ USER appuser
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
-# Default: production server with gunicorn (1 worker — EasyOCR models ~100MB in RAM)
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--worker-class", "gevent", "--timeout", "120", "app:app"]
+# Tesseract uses virtually no RAM — 2 workers fine for IO-bound receipt processing
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--worker-class", "gevent", "--timeout", "120", "app:app"]
