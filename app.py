@@ -380,7 +380,7 @@ def analyze():
             from PIL import Image
             Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
             reader = _get_ocr_reader()
-            results = reader.readtext(filepath, detail=0, paragraph=True)
+            results = reader.readtext(filepath, detail=0, paragraph=False)
             text = '\n'.join(results).strip()
 
             if not text.strip():
